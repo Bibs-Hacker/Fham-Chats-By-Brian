@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f0">
+    <title>NeonChat Family</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="https://files.catbox.moe/08b4pp.jpg">
+    <style>
+        /* Neon vibe CSS */
+        :root {
+            --neon-green: #39ff14;
+            --neon-blue: #00ffff;
+            --neon-pink: #ff00ff;
+            --neon-purple: #9d00ff;
+            --bg-dark: #121212;
+            --bg-light: #f0f0f0;
+            --text-dark: #ffffff;
+            --text-light: #000000;
+            --glow: 0 0 10px var(--neon-green), 0 0 20px var(--neon-blue);
+        }
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-dark);
+            margin: 0;
+            padding: 0;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        body.light {
+            background-color: var(--bg-light);
+            color: var(--text-light);
+        }
+        .neon-button {
+            background: linear-gradient(45deg, var(--neon-green), var(--neon-blue));
+            border: none;
+            color: var(--bg-dark);
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            box-shadow: var(--glow);
+            transition: box-shadow 0.3s;
+        }
+        .neon-button:hover {
+            box-shadow: 0 0 20px var(--neon-pink), 0 0 30px var(--neon-purple);
+        }
+        .neon-input {
+            background: transparent;
+            border: 2px solid var(--neon-green);
+            color: inherit;
+            padding: 8px;
+            border-radius: 5px;
+            box-shadow: var(--glow);
+        }
+        .neon-container {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: var(--glow);
+        }
+        .hidden {
+            display: none;
+        }
+        .chat-message {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: var(--glow);
+        }
+        .own-message {
+            background: var(--neon-blue);
+            align-self: flex-end;
+        }
+        .other-message {
+            background: var(--neon-pink);
+            align-self: flex-start;
+        }
+        #chat-window {
+            height: 300px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+        #post-feed {
+            margin-top: 20px;
+        }
+        .post {
+            background: rgba(255,255,255,0.1);
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            box-shadow: var(--glow);
+        }
+        .comment {
+            margin-left: 20px;
+            font-size: 0.9em;
+        }
+        #dashboard {
+            margin-top: 20px;
+        }
+        canvas {
+            width: 100%;
+            height: 200px;
+        }
+        footer {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 0.8em;
+        }
+        .eye-icon {
+            cursor: pointer;
+            margin-left: -30px;
+        }
+    </style>
+</head>
+<body>
+    <div id="login-screen" class="neon-container">
+        <h1>NeonChat Family Login</h1>
+        <input type="text" id="login-username" class="neon-input" placeholder="Username">
+        <div style="position: relative;">
+            <input type="password" id="login-password" class="neon-input" placeholder="Password">
+            <span class="eye-icon" onclick="togglePassword('login-password')">👁️</span>
+        </div>
+        <button class="neon-button" onclick="login()">Login</button>
+        <button class="neon-button" onclick="showRegister()">Register</button>
+    </div>
+
+    <div id="register-screen" class="neon-container hidden">
+        <h1>Register</h1>
+        <input type="text" id="reg-username" class="neon-input" placeholder="Username">
+        <input type="email" id="reg-email" class="neon-input" placeholder="Email">
+        <div style="position: relative;">
+            <input type="password" id="reg-password" class="neon-input" placeholder="Password">
+            <span class="eye-icon" onclick="togglePassword('reg-password')">👁️</span>
+        </div>
+        <button class="neon-button" onclick="register()">Register</button>
+        <button class="neon-button" onclick="showLogin()">Back to Login</button>
+    </div>
+
+    <div id="profile-setup" class="neon-container hidden">
+        <h1>Set Up Profile</h1>
+        <input type="text" id="profile-username" class="neon-input" placeholder="Display Name">
+        <input type="file" id="profile-pic" accept="image/*">
+        <button class="neon-button" onclick="saveProfile()">Save Profile</button>
+    </div>
+
+    <div id="home-screen" class="neon-container hidden">
+        <h1>Welcome to NeonChat Family</h1>
+        <button class="neon-button" onclick="toggleTheme()">Toggle Theme</button>
+        <button class="neon-button" onclick="logout()">Logout</button>
+        <button class="neon-button" onclick="showDashboard()" id="dashboard-btn" class="hidden">Dashboard</button>
+
+        <h2>Users</h2>
+        <input type="text" id="search-user" class="neon-input" placeholder="Search users" oninput="searchUsers()">
+        <ul id="user-list"></ul>
+
+        <div id="chat-section" class="hidden">
+            <h2>Chat with <span id="chat-with"></span></h2>
+            <div id="chat-window"></div>
+            <input type="text" id="chat-input" class="neon-input" placeholder="Type message">
+            <input type="file" id="chat-file" accept="image/*,application/pdf">
+            <button class="neon-button" onclick="sendMessage()">Send</button>
+        </div>
+
+        <button class="neon-button" onclick="showPosts()">Posts</button>
+        <div id="posts-screen" class="hidden">
+            <h2>Post Feed</h2>
+            <textarea id="post-content" class="neon-input" placeholder="What's on your mind?"></textarea>
+            <input type="file" id="post-media" accept="image/*,video/*">
+            <button class="neon-button" onclick="createPost()">Post</button>
+            <div id="post-feed"></div>
+        </div>
+
+        <div id="dashboard" class="hidden">
+            <h2>Leadership Dashboard</h2>
+            <canvas id="users-chart"></canvas>
+            <canvas id="chats-chart"></canvas>
+        </div>
+    </div>
+
+    <footer>Powered by Brian And Merab ©2026. Main Developers: Brian and Merab.</footer>
+
+    <script>
+        // IndexedDB setup
+        let db;
+        const dbRequest = indexedDB.open('NeonChatDB', 1);
+        dbRequest.onupgradeneeded = (event) => {
+            db = event.target.result;
+            db.createObjectStore('users', { keyPath: 'username' });
+            db.createObjectStore('profiles', { keyPath: 'username' });
+            db.createObjectStore('chats', { autoIncrement: true });
+            db.createObjectStore('posts', { autoIncrement: true });
+            db.createObjectStore('comments', { autoIncrement: true });
+            db.createObjectStore('stats', { keyPath: 'type' });
+        };
+        dbRequest.onsuccess = (event) => {
+            db = event.target.result;
+            checkAdmin();
+        };
+
+        let currentUser = null;
+        let currentChatUser = null;
+        let isLightTheme = false;
+        let isAdmin = false;
+
+        function togglePassword(id) {
+            const input = document.getElementById(id);
+            input.type = input.type === 'password' ? 'text' : 'password';
+        }
+
+        function showRegister() {
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('register-screen').classList.remove('hidden');
+        }
+
+        function showLogin() {
+            document.getElementById('register-screen').classList.add('hidden');
+            document.getElementById('login-screen').classList.remove('hidden');
+        }
+
+        function register() {
+            const username = document.getElementById('reg-username').value.trim();
+            const email = document.getElementById('reg-email').value.trim();
+            const password = document.getElementById('reg-password').value;
+
+            if (!username || !email || !password) return alert('Fill all fields');
+
+            const tx = db.transaction('users', 'readwrite');
+            const store = tx.objectStore('users');
+            store.add({ username, email, password });
+
+            tx.oncomplete = () => {
+                alert('Registered! Now login.');
+                showLogin();
+                updateStats('users');
+            };
+        }
+
+        function login() {
+            const username = document.getElementById('login-username').value.trim();
+            const password = document.getElementById('login-password').value;
+
+            const tx = db.transaction('users');
+            const store = tx.objectStore('users');
+            const req = store.get(username);
+
+            req.onsuccess = (e) => {
+                const user = e.target.result;
+                if (user && user.password === password) {
+                    currentUser = username;
+                    document.getElementById('login-screen').classList.add('hidden');
+                    checkProfile();
+                } else {
+                    alert('Invalid credentials');
+                }
+            };
+        }
+
+        function checkProfile() {
+            const tx = db.transaction('profiles');
+            const store = tx.objectStore('profiles');
+            const req = store.get(currentUser);
+
+            req.onsuccess = (e) => {
+                if (!e.target.result) {
+                    document.getElementById('profile-setup').classList.remove('hidden');
+                } else {
+                    showHome();
+                }
+            };
+        }
+
+        function saveProfile() {
+            const displayName = document.getElementById('profile-username').value.trim();
+            const picFile = document.getElementById('profile-pic').files[0];
+
+            if (!displayName) return alert('Enter display name');
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const profile = { username: currentUser, displayName, profilePic: e.target.result };
+                const tx = db.transaction('profiles', 'readwrite');
+                const store = tx.objectStore('profiles');
+                store.add(profile);
+                tx.oncomplete = () => {
+                    document.getElementById('profile-setup').classList.add('hidden');
+                    showHome();
+                };
+            };
+            if (picFile) reader.readAsDataURL(picFile);
+            else {
+                // Default pic or skip
+                const profile = { username: currentUser, displayName, profilePic: '' };
+                const tx = db.transaction('profiles', 'readwrite');
+                const store = tx.objectStore('profiles');
+                store.add(profile);
+                tx.oncomplete = () => {
+                    document.getElementById('profile-setup').classList.add('hidden');
+                    showHome();
+                };
+            }
+        }
+
+        function showHome() {
+            document.getElementById('home-screen').classList.remove('hidden');
+            loadUsers();
+            if (isAdmin) document.getElementById('dashboard-btn').classList.remove('hidden');
+        }
+
+        function loadUsers() {
+            const ul = document.getElementById('user-list');
+            ul.innerHTML = '';
+            const tx = db.transaction('profiles');
+            const store = tx.objectStore('profiles');
+            store.openCursor().onsuccess = (e) => {
+                const cursor = e.target.result;
+                if (cursor) {
+                    if (cursor.value.username !== currentUser) {
+                        const li = document.createElement('li');
+                        li.textContent = cursor.value.displayName;
+                        li.onclick = () => startChat(cursor.value.username);
+                        ul.appendChild(li);
+                    }
+                    cursor.continue();
+                }
+            };
+        }
+
+        function searchUsers() {
+            const query = document.getElementById('search-user').value.toLowerCase();
+            const ul = document.getElementById('user-list');
+            Array.from(ul.children).forEach(li => {
+                li.style.display = li.textContent.toLowerCase().includes(query) ? '' : 'none';
+            });
+        }
+
+        function startChat(targetUser) {
+            currentChatUser = targetUser;
+            document.getElementById('chat-with').textContent = targetUser;
+            document.getElementById('chat-section').classList.remove('hidden');
+            loadChats();
+        }
+
+        function loadChats() {
+            const window = document.getElementById('chat-window');
+            window.innerHTML = '';
+            const tx = db.transaction('chats');
+            const store = tx.objectStore('chats');
+            store.openCursor().onsuccess = (e) => {
+                const cursor = e.target.result;
+                if (cursor) {
+                    const chat = cursor.value;
+                    if ((chat.from === currentUser && chat.to === currentChatUser) || (chat.from === currentChatUser && chat.to === currentUser)) {
+                        const div = document.createElement('div');
+                        div.classList.add('chat-message');
+                        div.classList.add(chat.from === currentUser ? 'own-message' : 'other-message');
+                        div.innerHTML = `<strong>${chat.from}:</strong> ${chat.message}`;
+                        if (chat.file) {
+                            if (chat.file.type.startsWith('image/')) {
+                                const img = document.createElement('img');
+                                img.src = chat.file.data;
+                                img.style.width = '100px';
+                                div.appendChild(img);
+                            } else {
+                                const a = document.createElement('a');
+                                a.href = chat.file.data;
+                                a.download = chat.file.name;
+                                a.textContent = 'Download ' + chat.file.name;
+                                div.appendChild(a);
+                            }
+                        }
+                        const editBtn = document.createElement('button');
+                        editBtn.textContent = 'Edit';
+                        editBtn.onclick = () => editMessage(cursor.key, div);
+                        const delBtn = document.createElement('button');
+                        delBtn.textContent = 'Delete';
+                        delBtn.onclick = () => deleteMessage(cursor.key, div);
+                        if (chat.from === currentUser) {
+                            div.appendChild(editBtn);
+                            div.appendChild(delBtn);
+                        }
+                        window.appendChild(div);
+                    }
+                    cursor.continue();
+                }
+            };
+            updateStats('chats');
+        }
+
+        function sendMessage() {
+            const message = document.getElementById('chat-input').value.trim();
+            const file = document.getElementById('chat-file').files[0];
+            if (!message && !file) return;
+
+            const chat = { from: currentUser, to: currentChatUser, message, timestamp: Date.now() };
+
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    chat.file = { name: file.name, type: file.type, data: e.target.result };
+                    saveChat(chat);
+                };
+                reader.readAsDataURL(file);
+            } else {
+                saveChat(chat);
+            }
+
+            document.getElementById('chat-input').value = '';
+            document.getElementById('chat-file').value = '';
+        }
+
+        function saveChat(chat) {
+            const tx = db.transaction('chats', 'readwrite');
+            const store = tx.objectStore('chats');
+            store.add(chat);
+            tx.oncomplete = loadChats;
+        }
+
+        function editMessage(key, div) {
+            const newMsg = prompt('Edit message:', div.textContent.split(': ')[1]);
+            if (newMsg) {
+                const tx = db.transaction('chats', 'readwrite');
+                const store = tx.objectStore('chats');
+                const req = store.get(key);
+                req.onsuccess = (e) => {
+                    const chat = e.target.result;
+                    chat.message = newMsg;
+                    store.put(chat);
+                    loadChats();
+                };
+            }
+        }
+
+        function deleteMessage(key, div) {
+            if (confirm('Delete message?')) {
+                const tx = db.transaction('chats', 'readwrite');
+                const store = tx.objectStore('chats');
+                store.delete(key);
+                tx.oncomplete = loadChats;
+            }
+        }
+
+        function showPosts() {
+            document.getElementById('posts-screen').classList.toggle('hidden');
+            loadPosts();
+        }
+
+        function createPost() {
+            const content = document.getElementById('post-content').value.trim();
+            const media = document.getElementById('post-media').files[0];
+            if (!content && !media) return;
+
+            const post = { user: currentUser, content, timestamp: Date.now() };
+
+            if (media) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    post.media = { type: media.type, data: e.target.result };
+                    savePost(post);
+                };
+                reader.readAsDataURL(media);
+            } else {
+                savePost(post);
+            }
+
+            document.getElementById('post-content').value = '';
+            document.getElementById('post-media').value = '';
+        }
+
+        function savePost(post) {
+            const tx = db.transaction('posts', 'readwrite');
+            const store = tx.objectStore('posts');
+            store.add(post);
+            tx.oncomplete = loadPosts;
+        }
+
+        function loadPosts() {
+            const feed = document.getElementById('post-feed');
+            feed.innerHTML = '';
+            const tx = db.transaction('posts');
+            const store = tx.objectStore('posts');
+            store.openCursor(null, 'prev').onsuccess = (e) => {
+                const cursor = e.target.result;
+                if (cursor) {
+                    const post = cursor.value;
+                    const div = document.createElement('div');
+                    div.classList.add('post');
+                    div.innerHTML = `<strong>${post.user}:</strong> ${post.content}`;
+                    if (post.media) {
+                        if (post.media.type.startsWith('image/')) {
+                            const img = document.createElement('img');
+                            img.src = post.media.data;
+                            img.style.width = '200px';
+                            div.appendChild(img);
+                        } else if (post.media.type.startsWith('video/')) {
+                            const video = document.createElement('video');
+                            video.src = post.media.data;
+                            video.controls = true;
+                            video.style.width = '200px';
+                            div.appendChild(video);
+                        }
+                    }
+                    const commentInput = document.createElement('input');
+                    commentInput.classList.add('neon-input');
+                    commentInput.placeholder = 'Comment';
+                    const commentBtn = document.createElement('button');
+                    commentBtn.classList.add('neon-button');
+                    commentBtn.textContent = 'Add Comment';
+                    commentBtn.onclick = () => addComment(cursor.key, commentInput.value, div);
+                    div.appendChild(commentInput);
+                    div.appendChild(commentBtn);
+                    loadComments(cursor.key, div);
+                    feed.appendChild(div);
+                    cursor.continue();
+                }
+            };
+        }
+
+        function addComment(postId, content, postDiv) {
+            if (!content) return;
+            const comment = { postId, user: currentUser, content, timestamp: Date.now() };
+            const tx = db.transaction('comments', 'readwrite');
+            const store = tx.objectStore('comments');
+            store.add(comment);
+            tx.oncomplete = () => loadComments(postId, postDiv);
+        }
+
+        function loadComments(postId, postDiv) {
+            const existingComments = postDiv.querySelectorAll('.comment');
+            existingComments.forEach(c => c.remove());
+            const tx = db.transaction('comments');
+            const store = tx.objectStore('comments');
+            store.openCursor().onsuccess = (e) => {
+                const cursor = e.target.result;
+                if (cursor) {
+                    if (cursor.value.postId === postId) {
+                        const p = document.createElement('p');
+                        p.classList.add('comment');
+                        p.textContent = `${cursor.value.user}: ${cursor.value.content}`;
+                        postDiv.appendChild(p);
+                    }
+                    cursor.continue();
+                }
+            };
+        }
+
+        function logout() {
+            currentUser = null;
+            currentChatUser = null;
+            document.getElementById('home-screen').classList.add('hidden');
+            document.getElementById('chat-section').classList.add('hidden');
+            document.getElementById('posts-screen').classList.add('hidden');
+            document.getElementById('dashboard').classList.add('hidden');
+            document.getElementById('login-screen').classList.remove('hidden');
+        }
+
+        function toggleTheme() {
+            isLightTheme = !isLightTheme;
+            document.body.classList.toggle('light', isLightTheme);
+        }
+
+        function checkAdmin() {
+            // Assume first user is admin, or hardcode for demo
+            const tx = db.transaction('users');
+            const store = tx.objectStore('users');
+            store.openCursor().onsuccess = (e) => {
+                const cursor = e.target.result;
+                if (cursor) {
+                    if (currentUser === cursor.value.username) isAdmin = true;
+                }
+            };
+        }
+
+        function showDashboard() {
+            document.getElementById('dashboard').classList.toggle('hidden');
+            loadDashboard();
+        }
+
+        function updateStats(type) {
+            const tx = db.transaction('stats', 'readwrite');
+            const store = tx.objectStore('stats');
+            const req = store.get(type);
+            req.onsuccess = (e) => {
+                let stat = e.target.result || { type, count: 0 };
+                stat.count++;
+                store.put(stat);
+            };
+        }
+
+        function loadDashboard() {
+            // Use Chart.js for graphs, but since no external, simulate with canvas drawing
+            // For simplicity, draw simple bars
+            const usersCtx = document.getElementById('users-chart').getContext('2d');
+            const chatsCtx = document.getElementById('chats-chart').getContext('2d');
+
+            // Get stats
+            let userCount = 0, chatCount = 0;
+            const tx = db.transaction(['users', 'chats', 'stats']);
+            tx.objectStore('users').count().onsuccess = (e) => userCount = e.target.result;
+            tx.objectStore('chats').count().onsuccess = (e) => chatCount = e.target.result;
+            tx.oncomplete = () => {
+                // Draw users chart (simple bar)
+                usersCtx.fillStyle = 'green';
+                usersCtx.fillRect(0, 0, userCount * 10, 50);
+                usersCtx.fillStyle = 'white';
+                usersCtx.fillText(`Users: ${userCount}`, 10, 100);
+
+                // Chats chart
+                chatsCtx.fillStyle = 'blue';
+                chatsCtx.fillRect(0, 0, chatCount * 5, 50);
+                chatsCtx.fillStyle = 'white';
+                chatsCtx.fillText(`Chats: ${chatCount}`, 10, 100);
+            };
+        }
+
+        // PWA install prompt
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.prompt();
+        });
+
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js');
+        }
+    </script>
+</body>
+      </html>

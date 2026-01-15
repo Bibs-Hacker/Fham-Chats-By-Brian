@@ -7,8 +7,14 @@
     <title>NeonChat Family</title>
     <link rel="manifest" href="manifest.json">
     <link rel="icon" href="https://files.catbox.moe/08b4pp.jpg">
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-storage.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-messaging.js"></script>
     <style>
-        /* Neon vibe CSS */
+        /* Neon vibe CSS - Enhanced for better UI/UX */
         :root {
             --neon-green: #39ff14;
             --neon-blue: #00ffff;
@@ -21,12 +27,13 @@
             --glow: 0 0 10px var(--neon-green), 0 0 20px var(--neon-blue);
         }
         body {
-            font-family: 'Arial', sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: var(--bg-dark);
             color: var(--text-dark);
             margin: 0;
             padding: 0;
             transition: background-color 0.3s, color 0.3s;
+            user-select: none; /* Improve touch friendliness */
         }
         body.light {
             background-color: var(--bg-light);
@@ -36,28 +43,33 @@
             background: linear-gradient(45deg, var(--neon-green), var(--neon-blue));
             border: none;
             color: var(--bg-dark);
-            padding: 10px 20px;
-            border-radius: 5px;
+            padding: 12px 24px;
+            border-radius: 8px;
             cursor: pointer;
             box-shadow: var(--glow);
-            transition: box-shadow 0.3s;
+            transition: box-shadow 0.3s, transform 0.2s;
+            font-size: 16px;
         }
         .neon-button:hover {
             box-shadow: 0 0 20px var(--neon-pink), 0 0 30px var(--neon-purple);
+            transform: scale(1.05);
         }
         .neon-input {
             background: transparent;
             border: 2px solid var(--neon-green);
             color: inherit;
-            padding: 8px;
-            border-radius: 5px;
+            padding: 10px;
+            border-radius: 8px;
             box-shadow: var(--glow);
+            font-size: 16px;
+            width: 100%;
+            box-sizing: border-box;
         }
         .neon-container {
-            max-width: 800px;
+            max-width: 600px;
             margin: 20px auto;
             padding: 20px;
-            border-radius: 10px;
+            border-radius: 12px;
             box-shadow: var(--glow);
         }
         .hidden {
@@ -65,9 +77,11 @@
         }
         .chat-message {
             margin: 10px 0;
-            padding: 10px;
-            border-radius: 5px;
+            padding: 12px;
+            border-radius: 8px;
             box-shadow: var(--glow);
+            max-width: 80%;
+            word-wrap: break-word;
         }
         .own-message {
             background: var(--neon-blue);
@@ -78,19 +92,22 @@
             align-self: flex-start;
         }
         #chat-window {
-            height: 300px;
+            height: 400px;
             overflow-y: auto;
             display: flex;
             flex-direction: column;
+            padding: 10px;
+            border-radius: 8px;
+            background: rgba(0,0,0,0.2);
         }
         #post-feed {
             margin-top: 20px;
         }
         .post {
             background: rgba(255,255,255,0.1);
-            padding: 10px;
-            margin-bottom: 10px;
-            border-radius: 5px;
+            padding: 12px;
+            margin-bottom: 12px;
+            border-radius: 8px;
             box-shadow: var(--glow);
         }
         .comment {
@@ -102,7 +119,8 @@
         }
         canvas {
             width: 100%;
-            height: 200px;
+            height: 250px;
+            border-radius: 8px;
         }
         footer {
             text-align: center;
@@ -112,14 +130,55 @@
         .eye-icon {
             cursor: pointer;
             margin-left: -30px;
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        .input-group {
+            position: relative;
+            margin-bottom: 15px;
+        }
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--neon-green);
+            color: var(--bg-dark);
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: var(--glow);
+            z-index: 1000;
+            display: none;
+        }
+        /* Add smooth scrolling and touch optimizations */
+        html {
+            scroll-behavior: smooth;
+        }
+        /* For better mobile experience */
+        @media (max-width: 600px) {
+            .neon-container {
+                margin: 10px;
+                padding: 15px;
+            }
+            .neon-button {
+                padding: 10px 20px;
+                font-size: 14px;
+            }
+            .neon-input {
+                padding: 8px;
+                font-size: 14px;
+            }
         }
     </style>
 </head>
 <body>
+    <div id="notification" class="notification"></div>
     <div id="login-screen" class="neon-container">
         <h1>NeonChat Family Login</h1>
-        <input type="text" id="login-username" class="neon-input" placeholder="Username">
-        <div style="position: relative;">
+        <div class="input-group">
+            <input type="text" id="login-username" class="neon-input" placeholder="Username">
+        </div>
+        <div class="input-group">
             <input type="password" id="login-password" class="neon-input" placeholder="Password">
             <span class="eye-icon" onclick="togglePassword('login-password')">👁️</span>
         </div>
@@ -129,9 +188,13 @@
 
     <div id="register-screen" class="neon-container hidden">
         <h1>Register</h1>
-        <input type="text" id="reg-username" class="neon-input" placeholder="Username">
-        <input type="email" id="reg-email" class="neon-input" placeholder="Email">
-        <div style="position: relative;">
+        <div class="input-group">
+            <input type="text" id="reg-username" class="neon-input" placeholder="Username">
+        </div>
+        <div class="input-group">
+            <input type="email" id="reg-email" class="neon-input" placeholder="Email">
+        </div>
+        <div class="input-group">
             <input type="password" id="reg-password" class="neon-input" placeholder="Password">
             <span class="eye-icon" onclick="togglePassword('reg-password')">👁️</span>
         </div>
@@ -141,7 +204,9 @@
 
     <div id="profile-setup" class="neon-container hidden">
         <h1>Set Up Profile</h1>
-        <input type="text" id="profile-username" class="neon-input" placeholder="Display Name">
+        <div class="input-group">
+            <input type="text" id="profile-username" class="neon-input" placeholder="Display Name">
+        </div>
         <input type="file" id="profile-pic" accept="image/*">
         <button class="neon-button" onclick="saveProfile()">Save Profile</button>
     </div>
@@ -153,13 +218,17 @@
         <button class="neon-button" onclick="showDashboard()" id="dashboard-btn" class="hidden">Dashboard</button>
 
         <h2>Users</h2>
-        <input type="text" id="search-user" class="neon-input" placeholder="Search users" oninput="searchUsers()">
+        <div class="input-group">
+            <input type="text" id="search-user" class="neon-input" placeholder="Search users" oninput="searchUsers()">
+        </div>
         <ul id="user-list"></ul>
 
         <div id="chat-section" class="hidden">
             <h2>Chat with <span id="chat-with"></span></h2>
             <div id="chat-window"></div>
-            <input type="text" id="chat-input" class="neon-input" placeholder="Type message">
+            <div class="input-group">
+                <input type="text" id="chat-input" class="neon-input" placeholder="Type message">
+            </div>
             <input type="file" id="chat-file" accept="image/*,application/pdf">
             <button class="neon-button" onclick="sendMessage()">Send</button>
         </div>
@@ -167,7 +236,7 @@
         <button class="neon-button" onclick="showPosts()">Posts</button>
         <div id="posts-screen" class="hidden">
             <h2>Post Feed</h2>
-            <textarea id="post-content" class="neon-input" placeholder="What's on your mind?"></textarea>
+            <textarea id="post-content" class="neon-input" placeholder="What's on your mind?" rows="4"></textarea>
             <input type="file" id="post-media" accept="image/*,video/*">
             <button class="neon-button" onclick="createPost()">Post</button>
             <div id="post-feed"></div>
@@ -182,29 +251,416 @@
 
     <footer>Powered by Brian And Merab ©2026. Main Developers: Brian and Merab.</footer>
 
-    <script>
-        // IndexedDB setup
-        let db;
-        const dbRequest = indexedDB.open('NeonChatDB', 1);
-        dbRequest.onupgradeneeded = (event) => {
-            db = event.target.result;
-            db.createObjectStore('users', { keyPath: 'username' });
-            db.createObjectStore('profiles', { keyPath: 'username' });
-            db.createObjectStore('chats', { autoIncrement: true });
-            db.createObjectStore('posts', { autoIncrement: true });
-            db.createObjectStore('comments', { autoIncrement: true });
-            db.createObjectStore('stats', { keyPath: 'type' });
+    <script type="module">
+        // Firebase Config - Replace with your own Firebase project config
+        const firebaseConfig = {
+            apiKey: "AIzaSyCwcdPhGcHb6kDhVPYJgV0lpZoWX3qSn4A",           // ← CHANGE!
+            authDomain: "heartline-6bb08.firebaseapp.com",
+            projectId: "heartline-6bb08",
+            storageBucket: "heartline-6bb08.firebasestorage.app",
+            messagingSenderId: "372851895770",
+            appId: "1:372851895770:web:aac0ae1e5bdb22482c24e3",
+            databaseURL: "https://heartline-6bb08-default-rtdb.firebaseio.com/",
+            measurementId: "G-C51VHHGKG6"
         };
-        dbRequest.onsuccess = (event) => {
-            db = event.target.result;
-            checkAdmin();
-        };
+        const app = firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        db.enablePersistence({ synchronizeTabs: true }); // Offline support
+        const storage = firebase.storage();
+        const messaging = firebase.messaging();
 
-        let currentUser = null;
-        let currentChatUser = null;
-        let isLightTheme = false;
-        let isAdmin = false;
+        // Modular JavaScript - Organized into classes and functions
 
+        class AuthManager {
+            constructor() {
+                this.currentUser = null;
+            }
+
+            async register(username, email, password) {
+                try {
+                    const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+                    await db.collection('users').doc(userCredential.user.uid).set({ username, email });
+                    this.showNotification('Registered successfully!');
+                    this.showLogin();
+                } catch (error) {
+                    alert(error.message);
+                }
+            }
+
+            async login(email, password) {
+                try {
+                    const userCredential = await auth.signInWithEmailAndPassword(email, password);
+                    this.currentUser = userCredential.user;
+                    this.checkProfile();
+                } catch (error) {
+                    alert(error.message);
+                }
+            }
+
+            logout() {
+                auth.signOut();
+                this.currentUser = null;
+                document.getElementById('home-screen').classList.add('hidden');
+                document.getElementById('login-screen').classList.remove('hidden');
+            }
+
+            checkProfile() {
+                db.collection('profiles').doc(this.currentUser.uid).get().then(doc => {
+                    if (!doc.exists) {
+                        document.getElementById('profile-setup').classList.remove('hidden');
+                    } else {
+                        this.showHome();
+                    }
+                });
+            }
+
+            async saveProfile(displayName, picFile) {
+                try {
+                    const profile = { displayName };
+                    if (picFile) {
+                        const ref = storage.ref(`profiles/${this.currentUser.uid}`);
+                        await ref.put(picFile);
+                        profile.profilePic = await ref.getDownloadURL();
+                    }
+                    await db.collection('profiles').doc(this.currentUser.uid).set(profile);
+                    this.showHome();
+                } catch (error) {
+                    alert(error.message);
+                }
+            }
+
+            showNotification(message) {
+                const notif = document.getElementById('notification');
+                notif.textContent = message;
+                notif.style.display = 'block';
+                setTimeout(() => notif.style.display = 'none', 3000);
+            }
+
+            showLogin() {
+                document.getElementById('register-screen').classList.add('hidden');
+                document.getElementById('login-screen').classList.remove('hidden');
+            }
+
+            showHome() {
+                document.getElementById('profile-setup').classList.add('hidden');
+                document.getElementById('home-screen').classList.remove('hidden');
+                userManager.loadUsers();
+                if (isAdmin) document.getElementById('dashboard-btn').classList.remove('hidden');
+            }
+        }
+
+        class UserManager {
+            loadUsers() {
+                const ul = document.getElementById('user-list');
+                ul.innerHTML = '';
+                db.collection('profiles').onSnapshot(snapshot => {
+                    snapshot.forEach(doc => {
+                        if (doc.id !== authManager.currentUser.uid) {
+                            const li = document.createElement('li');
+                            li.textContent = doc.data().displayName;
+                            li.onclick = () => chatManager.startChat(doc.id, doc.data().displayName);
+                            ul.appendChild(li);
+                        }
+                    });
+                });
+            }
+
+            searchUsers() {
+                const query = document.getElementById('search-user').value.toLowerCase();
+                const ul = document.getElementById('user-list');
+                Array.from(ul.children).forEach(li => {
+                    li.style.display = li.textContent.toLowerCase().includes(query) ? '' : 'none';
+                });
+            }
+        }
+
+        class ChatManager {
+            currentChatUser = null;
+            currentChatUserName = null;
+
+            startChat(targetUser, targetName) {
+                this.currentChatUser = targetUser;
+                this.currentChatUserName = targetName;
+                document.getElementById('chat-with').textContent = targetName;
+                document.getElementById('chat-section').classList.remove('hidden');
+                this.loadChats();
+            }
+
+            loadChats() {
+                const window = document.getElementById('chat-window');
+                window.innerHTML = '';
+                const chatId = [authManager.currentUser.uid, this.currentChatUser].sort().join('_');
+                db.collection('chats').doc(chatId).collection('messages').orderBy('timestamp').onSnapshot(snapshot => {
+                    window.innerHTML = '';
+                    snapshot.forEach(doc => {
+                        const chat = doc.data();
+                        const div = document.createElement('div');
+                        div.classList.add('chat-message');
+                        div.classList.add(chat.from === authManager.currentUser.uid ? 'own-message' : 'other-message');
+                        div.innerHTML = `<strong>${chat.fromName}:</strong> ${chat.message}`;
+                        if (chat.file) {
+                            if (chat.file.type.startsWith('image/')) {
+                                const img = document.createElement('img');
+                                img.src = chat.file.url;
+                                img.style.width = '100px';
+                                div.appendChild(img);
+                            } else {
+                                const a = document.createElement('a');
+                                a.href = chat.file.url;
+                                a.download = chat.file.name;
+                                a.textContent = 'Download ' + chat.file.name;
+                                div.appendChild(a);
+                            }
+                        }
+                        const editBtn = document.createElement('button');
+                        editBtn.textContent = 'Edit';
+                        editBtn.onclick = () => this.editMessage(doc.id, chatId, div);
+                        const delBtn = document.createElement('button');
+                        delBtn.textContent = 'Delete';
+                        delBtn.onclick = () => this.deleteMessage(doc.id, chatId);
+                        if (chat.from === authManager.currentUser.uid) {
+                            div.appendChild(editBtn);
+                            div.appendChild(delBtn);
+                        }
+                        window.appendChild(div);
+                        window.scrollTop = window.scrollHeight;
+                    });
+                });
+                statsManager.updateStats('chats');
+            }
+
+            async sendMessage() {
+                const message = document.getElementById('chat-input').value.trim();
+                const file = document.getElementById('chat-file').files[0];
+                if (!message && !file) return;
+
+                const chatId = [authManager.currentUser.uid, this.currentChatUser].sort().join('_');
+                const profile = await db.collection('profiles').doc(authManager.currentUser.uid).get();
+                const fromName = profile.data().displayName;
+
+                const chat = { from: authManager.currentUser.uid, fromName, to: this.currentChatUser, message, timestamp: firebase.firestore.FieldValue.serverTimestamp() };
+
+                if (file) {
+                    const ref = storage.ref(`chats/${chatId}/${file.name}`);
+                    await ref.put(file);
+                    chat.file = { name: file.name, type: file.type, url: await ref.getDownloadURL() };
+                }
+
+                await db.collection('chats').doc(chatId).collection('messages').add(chat);
+                document.getElementById('chat-input').value = '';
+                document.getElementById('chat-file').value = '';
+
+                // Send notification
+                this.sendPushNotification(this.currentChatUser, `New message from ${fromName}`);
+            }
+
+            async editMessage(msgId, chatId, div) {
+                const newMsg = prompt('Edit message:', div.textContent.split(': ')[1]);
+                if (newMsg) {
+                    await db.collection('chats').doc(chatId).collection('messages').doc(msgId).update({ message: newMsg });
+                }
+            }
+
+            async deleteMessage(msgId, chatId) {
+                if (confirm('Delete message?')) {
+                    await db.collection('chats').doc(chatId).collection('messages').doc(msgId).delete();
+                }
+            }
+
+            async sendPushNotification(toUserId, message) {
+                // For demo, assume server-side handling for FCM, here client-side trigger
+                // In real, use cloud functions
+                const token = await db.collection('userTokens').doc(toUserId).get();
+                if (token.exists) {
+                    // Simulate send via fetch to your server
+                    console.log(`Sending notification to ${toUserId}: ${message}`);
+                }
+            }
+        }
+
+        class PostManager {
+            showPosts() {
+                document.getElementById('posts-screen').classList.toggle('hidden');
+                this.loadPosts();
+            }
+
+            async createPost() {
+                const content = document.getElementById('post-content').value.trim();
+                const media = document.getElementById('post-media').files[0];
+                if (!content && !media) return;
+
+                const profile = await db.collection('profiles').doc(authManager.currentUser.uid).get();
+                const userName = profile.data().displayName;
+
+                const post = { user: authManager.currentUser.uid, userName, content, timestamp: firebase.firestore.FieldValue.serverTimestamp() };
+
+                if (media) {
+                    const ref = storage.ref(`posts/${media.name}`);
+                    await ref.put(media);
+                    post.media = { type: media.type, url: await ref.getDownloadURL() };
+                }
+
+                await db.collection('posts').add(post);
+                document.getElementById('post-content').value = '';
+                document.getElementById('post-media').value = '';
+            }
+
+            loadPosts() {
+                const feed = document.getElementById('post-feed');
+                feed.innerHTML = '';
+                db.collection('posts').orderBy('timestamp', 'desc').onSnapshot(snapshot => {
+                    feed.innerHTML = '';
+                    snapshot.forEach(doc => {
+                        const post = doc.data();
+                        const div = document.createElement('div');
+                        div.classList.add('post');
+                        div.innerHTML = `<strong>${post.userName}:</strong> ${post.content}`;
+                        if (post.media) {
+                            if (post.media.type.startsWith('image/')) {
+                                const img = document.createElement('img');
+                                img.src = post.media.url;
+                                img.style.width = '200px';
+                                div.appendChild(img);
+                            } else if (post.media.type.startsWith('video/')) {
+                                const video = document.createElement('video');
+                                video.src = post.media.url;
+                                video.controls = true;
+                                video.style.width = '200px';
+                                div.appendChild(video);
+                            }
+                        }
+                        const commentInput = document.createElement('input');
+                        commentInput.classList.add('neon-input');
+                        commentInput.placeholder = 'Comment';
+                        const commentBtn = document.createElement('button');
+                        commentBtn.classList.add('neon-button');
+                        commentBtn.textContent = 'Add Comment';
+                        commentBtn.onclick = () => this.addComment(doc.id, commentInput.value, div);
+                        div.appendChild(commentInput);
+                        div.appendChild(commentBtn);
+                        this.loadComments(doc.id, div);
+                        feed.appendChild(div);
+                    });
+                });
+            }
+
+            async addComment(postId, content, postDiv) {
+                if (!content) return;
+                const profile = await db.collection('profiles').doc(authManager.currentUser.uid).get();
+                const userName = profile.data().displayName;
+                const comment = { postId, user: authManager.currentUser.uid, userName, content, timestamp: firebase.firestore.FieldValue.serverTimestamp() };
+                await db.collection('comments').add(comment);
+                this.loadComments(postId, postDiv);
+            }
+
+            loadComments(postId, postDiv) {
+                const existingComments = postDiv.querySelectorAll('.comment');
+                existingComments.forEach(c => c.remove());
+                db.collection('comments').where('postId', '==', postId).orderBy('timestamp').onSnapshot(snapshot => {
+                    snapshot.forEach(doc => {
+                        const comment = doc.data();
+                        const p = document.createElement('p');
+                        p.classList.add('comment');
+                        p.textContent = `${comment.userName}: ${comment.content}`;
+                        postDiv.appendChild(p);
+                    });
+                });
+            }
+        }
+
+        class StatsManager {
+            async updateStats(type) {
+                const statRef = db.collection('stats').doc(type);
+                await db.runTransaction(transaction => {
+                    return transaction.get(statRef).then(doc => {
+                        const newCount = (doc.data() ? doc.data().count : 0) + 1;
+                        transaction.set(statRef, { count: newCount });
+                    });
+                });
+            }
+
+            showDashboard() {
+                document.getElementById('dashboard').classList.toggle('hidden');
+                this.loadDashboard();
+            }
+
+            loadDashboard() {
+                // Enhanced with Chart.js - Include via CDN for modularity
+                if (!window.Chart) {
+                    const script = document.createElement('script');
+                    script.src = 'https://cdn.jsdelivr.net/npm/chart.js';
+                    script.onload = () => this.drawCharts();
+                    document.head.appendChild(script);
+                } else {
+                    this.drawCharts();
+                }
+            }
+
+            async drawCharts() {
+                const usersCtx = document.getElementById('users-chart').getContext('2d');
+                const chatsCtx = document.getElementById('chats-chart').getContext('2d');
+
+                const usersDoc = await db.collection('stats').doc('users').get();
+                const chatsDoc = await db.collection('stats').doc('chats').get();
+                const userCount = usersDoc.data()?.count || 0;
+                const chatCount = chatsDoc.data()?.count || 0;
+
+                new Chart(usersCtx, {
+                    type: 'bar',
+                    data: { labels: ['Users'], datasets: [{ label: 'Total Users', data: [userCount], backgroundColor: 'green' }] },
+                    options: { scales: { y: { beginAtZero: true } } }
+                });
+
+                new Chart(chatsCtx, {
+                    type: 'bar',
+                    data: { labels: ['Chats'], datasets: [{ label: 'Total Chats', data: [chatCount], backgroundColor: 'blue' }] },
+                    options: { scales: { y: { beginAtZero: true } } }
+                });
+            }
+        }
+
+        class ThemeManager {
+            isLightTheme = false;
+
+            toggleTheme() {
+                this.isLightTheme = !this.isLightTheme;
+                document.body.classList.toggle('light', this.isLightTheme);
+            }
+        }
+
+        class NotificationManager {
+            constructor() {
+                this.requestPermission();
+                messaging.onMessage(payload => {
+                    authManager.showNotification(payload.notification.body);
+                });
+            }
+
+            async requestPermission() {
+                try {
+                    const permission = await Notification.requestPermission();
+                    if (permission === 'granted') {
+                        const token = await messaging.getToken();
+                        await db.collection('userTokens').doc(authManager.currentUser.uid).set({ token });
+                    }
+                } catch (error) {
+                    console.error(error);
+                }
+            }
+        }
+
+        // Instances
+        const authManager = new AuthManager();
+        const userManager = new UserManager();
+        const chatManager = new ChatManager();
+        const postManager = new PostManager();
+        const statsManager = new StatsManager();
+        const themeManager = new ThemeManager();
+        let notificationManager;
+        let isAdmin = false; // Set based on user, e.g., if currentUser.email === 'admin@email.com'
+
+        // Global functions
         function togglePassword(id) {
             const input = document.getElementById(id);
             input.type = input.type === 'password' ? 'text' : 'password';
@@ -216,404 +672,69 @@
         }
 
         function showLogin() {
-            document.getElementById('register-screen').classList.add('hidden');
-            document.getElementById('login-screen').classList.remove('hidden');
+            authManager.showLogin();
         }
 
-        function register() {
+        async function register() {
             const username = document.getElementById('reg-username').value.trim();
             const email = document.getElementById('reg-email').value.trim();
             const password = document.getElementById('reg-password').value;
-
             if (!username || !email || !password) return alert('Fill all fields');
-
-            const tx = db.transaction('users', 'readwrite');
-            const store = tx.objectStore('users');
-            store.add({ username, email, password });
-
-            tx.oncomplete = () => {
-                alert('Registered! Now login.');
-                showLogin();
-                updateStats('users');
-            };
+            await authManager.register(username, email, password);
+            statsManager.updateStats('users');
         }
 
-        function login() {
-            const username = document.getElementById('login-username').value.trim();
+        async function login() {
+            const email = document.getElementById('login-username').value.trim(); // Assuming username is email for simplicity
             const password = document.getElementById('login-password').value;
-
-            const tx = db.transaction('users');
-            const store = tx.objectStore('users');
-            const req = store.get(username);
-
-            req.onsuccess = (e) => {
-                const user = e.target.result;
-                if (user && user.password === password) {
-                    currentUser = username;
-                    document.getElementById('login-screen').classList.add('hidden');
-                    checkProfile();
-                } else {
-                    alert('Invalid credentials');
-                }
-            };
+            await authManager.login(email, password);
+            notificationManager = new NotificationManager();
         }
 
-        function checkProfile() {
-            const tx = db.transaction('profiles');
-            const store = tx.objectStore('profiles');
-            const req = store.get(currentUser);
-
-            req.onsuccess = (e) => {
-                if (!e.target.result) {
-                    document.getElementById('profile-setup').classList.remove('hidden');
-                } else {
-                    showHome();
-                }
-            };
-        }
-
-        function saveProfile() {
+        async function saveProfile() {
             const displayName = document.getElementById('profile-username').value.trim();
             const picFile = document.getElementById('profile-pic').files[0];
-
             if (!displayName) return alert('Enter display name');
-
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const profile = { username: currentUser, displayName, profilePic: e.target.result };
-                const tx = db.transaction('profiles', 'readwrite');
-                const store = tx.objectStore('profiles');
-                store.add(profile);
-                tx.oncomplete = () => {
-                    document.getElementById('profile-setup').classList.add('hidden');
-                    showHome();
-                };
-            };
-            if (picFile) reader.readAsDataURL(picFile);
-            else {
-                // Default pic or skip
-                const profile = { username: currentUser, displayName, profilePic: '' };
-                const tx = db.transaction('profiles', 'readwrite');
-                const store = tx.objectStore('profiles');
-                store.add(profile);
-                tx.oncomplete = () => {
-                    document.getElementById('profile-setup').classList.add('hidden');
-                    showHome();
-                };
-            }
-        }
-
-        function showHome() {
-            document.getElementById('home-screen').classList.remove('hidden');
-            loadUsers();
-            if (isAdmin) document.getElementById('dashboard-btn').classList.remove('hidden');
-        }
-
-        function loadUsers() {
-            const ul = document.getElementById('user-list');
-            ul.innerHTML = '';
-            const tx = db.transaction('profiles');
-            const store = tx.objectStore('profiles');
-            store.openCursor().onsuccess = (e) => {
-                const cursor = e.target.result;
-                if (cursor) {
-                    if (cursor.value.username !== currentUser) {
-                        const li = document.createElement('li');
-                        li.textContent = cursor.value.displayName;
-                        li.onclick = () => startChat(cursor.value.username);
-                        ul.appendChild(li);
-                    }
-                    cursor.continue();
-                }
-            };
+            await authManager.saveProfile(displayName, picFile);
         }
 
         function searchUsers() {
-            const query = document.getElementById('search-user').value.toLowerCase();
-            const ul = document.getElementById('user-list');
-            Array.from(ul.children).forEach(li => {
-                li.style.display = li.textContent.toLowerCase().includes(query) ? '' : 'none';
-            });
-        }
-
-        function startChat(targetUser) {
-            currentChatUser = targetUser;
-            document.getElementById('chat-with').textContent = targetUser;
-            document.getElementById('chat-section').classList.remove('hidden');
-            loadChats();
-        }
-
-        function loadChats() {
-            const window = document.getElementById('chat-window');
-            window.innerHTML = '';
-            const tx = db.transaction('chats');
-            const store = tx.objectStore('chats');
-            store.openCursor().onsuccess = (e) => {
-                const cursor = e.target.result;
-                if (cursor) {
-                    const chat = cursor.value;
-                    if ((chat.from === currentUser && chat.to === currentChatUser) || (chat.from === currentChatUser && chat.to === currentUser)) {
-                        const div = document.createElement('div');
-                        div.classList.add('chat-message');
-                        div.classList.add(chat.from === currentUser ? 'own-message' : 'other-message');
-                        div.innerHTML = `<strong>${chat.from}:</strong> ${chat.message}`;
-                        if (chat.file) {
-                            if (chat.file.type.startsWith('image/')) {
-                                const img = document.createElement('img');
-                                img.src = chat.file.data;
-                                img.style.width = '100px';
-                                div.appendChild(img);
-                            } else {
-                                const a = document.createElement('a');
-                                a.href = chat.file.data;
-                                a.download = chat.file.name;
-                                a.textContent = 'Download ' + chat.file.name;
-                                div.appendChild(a);
-                            }
-                        }
-                        const editBtn = document.createElement('button');
-                        editBtn.textContent = 'Edit';
-                        editBtn.onclick = () => editMessage(cursor.key, div);
-                        const delBtn = document.createElement('button');
-                        delBtn.textContent = 'Delete';
-                        delBtn.onclick = () => deleteMessage(cursor.key, div);
-                        if (chat.from === currentUser) {
-                            div.appendChild(editBtn);
-                            div.appendChild(delBtn);
-                        }
-                        window.appendChild(div);
-                    }
-                    cursor.continue();
-                }
-            };
-            updateStats('chats');
+            userManager.searchUsers();
         }
 
         function sendMessage() {
-            const message = document.getElementById('chat-input').value.trim();
-            const file = document.getElementById('chat-file').files[0];
-            if (!message && !file) return;
-
-            const chat = { from: currentUser, to: currentChatUser, message, timestamp: Date.now() };
-
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    chat.file = { name: file.name, type: file.type, data: e.target.result };
-                    saveChat(chat);
-                };
-                reader.readAsDataURL(file);
-            } else {
-                saveChat(chat);
-            }
-
-            document.getElementById('chat-input').value = '';
-            document.getElementById('chat-file').value = '';
-        }
-
-        function saveChat(chat) {
-            const tx = db.transaction('chats', 'readwrite');
-            const store = tx.objectStore('chats');
-            store.add(chat);
-            tx.oncomplete = loadChats;
-        }
-
-        function editMessage(key, div) {
-            const newMsg = prompt('Edit message:', div.textContent.split(': ')[1]);
-            if (newMsg) {
-                const tx = db.transaction('chats', 'readwrite');
-                const store = tx.objectStore('chats');
-                const req = store.get(key);
-                req.onsuccess = (e) => {
-                    const chat = e.target.result;
-                    chat.message = newMsg;
-                    store.put(chat);
-                    loadChats();
-                };
-            }
-        }
-
-        function deleteMessage(key, div) {
-            if (confirm('Delete message?')) {
-                const tx = db.transaction('chats', 'readwrite');
-                const store = tx.objectStore('chats');
-                store.delete(key);
-                tx.oncomplete = loadChats;
-            }
+            chatManager.sendMessage();
         }
 
         function showPosts() {
-            document.getElementById('posts-screen').classList.toggle('hidden');
-            loadPosts();
+            postManager.showPosts();
         }
 
         function createPost() {
-            const content = document.getElementById('post-content').value.trim();
-            const media = document.getElementById('post-media').files[0];
-            if (!content && !media) return;
-
-            const post = { user: currentUser, content, timestamp: Date.now() };
-
-            if (media) {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    post.media = { type: media.type, data: e.target.result };
-                    savePost(post);
-                };
-                reader.readAsDataURL(media);
-            } else {
-                savePost(post);
-            }
-
-            document.getElementById('post-content').value = '';
-            document.getElementById('post-media').value = '';
-        }
-
-        function savePost(post) {
-            const tx = db.transaction('posts', 'readwrite');
-            const store = tx.objectStore('posts');
-            store.add(post);
-            tx.oncomplete = loadPosts;
-        }
-
-        function loadPosts() {
-            const feed = document.getElementById('post-feed');
-            feed.innerHTML = '';
-            const tx = db.transaction('posts');
-            const store = tx.objectStore('posts');
-            store.openCursor(null, 'prev').onsuccess = (e) => {
-                const cursor = e.target.result;
-                if (cursor) {
-                    const post = cursor.value;
-                    const div = document.createElement('div');
-                    div.classList.add('post');
-                    div.innerHTML = `<strong>${post.user}:</strong> ${post.content}`;
-                    if (post.media) {
-                        if (post.media.type.startsWith('image/')) {
-                            const img = document.createElement('img');
-                            img.src = post.media.data;
-                            img.style.width = '200px';
-                            div.appendChild(img);
-                        } else if (post.media.type.startsWith('video/')) {
-                            const video = document.createElement('video');
-                            video.src = post.media.data;
-                            video.controls = true;
-                            video.style.width = '200px';
-                            div.appendChild(video);
-                        }
-                    }
-                    const commentInput = document.createElement('input');
-                    commentInput.classList.add('neon-input');
-                    commentInput.placeholder = 'Comment';
-                    const commentBtn = document.createElement('button');
-                    commentBtn.classList.add('neon-button');
-                    commentBtn.textContent = 'Add Comment';
-                    commentBtn.onclick = () => addComment(cursor.key, commentInput.value, div);
-                    div.appendChild(commentInput);
-                    div.appendChild(commentBtn);
-                    loadComments(cursor.key, div);
-                    feed.appendChild(div);
-                    cursor.continue();
-                }
-            };
-        }
-
-        function addComment(postId, content, postDiv) {
-            if (!content) return;
-            const comment = { postId, user: currentUser, content, timestamp: Date.now() };
-            const tx = db.transaction('comments', 'readwrite');
-            const store = tx.objectStore('comments');
-            store.add(comment);
-            tx.oncomplete = () => loadComments(postId, postDiv);
-        }
-
-        function loadComments(postId, postDiv) {
-            const existingComments = postDiv.querySelectorAll('.comment');
-            existingComments.forEach(c => c.remove());
-            const tx = db.transaction('comments');
-            const store = tx.objectStore('comments');
-            store.openCursor().onsuccess = (e) => {
-                const cursor = e.target.result;
-                if (cursor) {
-                    if (cursor.value.postId === postId) {
-                        const p = document.createElement('p');
-                        p.classList.add('comment');
-                        p.textContent = `${cursor.value.user}: ${cursor.value.content}`;
-                        postDiv.appendChild(p);
-                    }
-                    cursor.continue();
-                }
-            };
-        }
-
-        function logout() {
-            currentUser = null;
-            currentChatUser = null;
-            document.getElementById('home-screen').classList.add('hidden');
-            document.getElementById('chat-section').classList.add('hidden');
-            document.getElementById('posts-screen').classList.add('hidden');
-            document.getElementById('dashboard').classList.add('hidden');
-            document.getElementById('login-screen').classList.remove('hidden');
+            postManager.createPost();
         }
 
         function toggleTheme() {
-            isLightTheme = !isLightTheme;
-            document.body.classList.toggle('light', isLightTheme);
+            themeManager.toggleTheme();
         }
 
-        function checkAdmin() {
-            // Assume first user is admin, or hardcode for demo
-            const tx = db.transaction('users');
-            const store = tx.objectStore('users');
-            store.openCursor().onsuccess = (e) => {
-                const cursor = e.target.result;
-                if (cursor) {
-                    if (currentUser === cursor.value.username) isAdmin = true;
-                }
-            };
+        function logout() {
+            authManager.logout();
         }
 
         function showDashboard() {
-            document.getElementById('dashboard').classList.toggle('hidden');
-            loadDashboard();
+            statsManager.showDashboard();
         }
 
-        function updateStats(type) {
-            const tx = db.transaction('stats', 'readwrite');
-            const store = tx.objectStore('stats');
-            const req = store.get(type);
-            req.onsuccess = (e) => {
-                let stat = e.target.result || { type, count: 0 };
-                stat.count++;
-                store.put(stat);
-            };
-        }
-
-        function loadDashboard() {
-            // Use Chart.js for graphs, but since no external, simulate with canvas drawing
-            // For simplicity, draw simple bars
-            const usersCtx = document.getElementById('users-chart').getContext('2d');
-            const chatsCtx = document.getElementById('chats-chart').getContext('2d');
-
-            // Get stats
-            let userCount = 0, chatCount = 0;
-            const tx = db.transaction(['users', 'chats', 'stats']);
-            tx.objectStore('users').count().onsuccess = (e) => userCount = e.target.result;
-            tx.objectStore('chats').count().onsuccess = (e) => chatCount = e.target.result;
-            tx.oncomplete = () => {
-                // Draw users chart (simple bar)
-                usersCtx.fillStyle = 'green';
-                usersCtx.fillRect(0, 0, userCount * 10, 50);
-                usersCtx.fillStyle = 'white';
-                usersCtx.fillText(`Users: ${userCount}`, 10, 100);
-
-                // Chats chart
-                chatsCtx.fillStyle = 'blue';
-                chatsCtx.fillRect(0, 0, chatCount * 5, 50);
-                chatsCtx.fillStyle = 'white';
-                chatsCtx.fillText(`Chats: ${chatCount}`, 10, 100);
-            };
-        }
+        // Auth state listener
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                authManager.currentUser = user;
+                authManager.checkProfile();
+            } else {
+                document.getElementById('login-screen').classList.remove('hidden');
+            }
+        });
 
         // PWA install prompt
         window.addEventListener('beforeinstallprompt', (e) => {
@@ -621,8 +742,10 @@
         });
 
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js');
+            navigator.serviceWorker.register('/sw.js').then(reg => {
+                messaging.useServiceWorker(reg);
+            });
         }
     </script>
 </body>
-      </html>
+    </html>
